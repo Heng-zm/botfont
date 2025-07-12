@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Command Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --primary-color: #3b82f6; --primary-hover: #2563eb;
+            --success-color: #22c55e; --danger-color: #ef4444; --warning-color: #f59e0b;
+            --bg-dark-1: #0D1117; --bg-dark-2: #161B22; --bg-dark-3: #21262D;
+            --border-color: #30363d;
+            --text-primary: #c9d1d9; --text-secondary: #8b949e;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            background-color: var(--bg-dark-1);
+            color: var(--text-primary);
+        }
+        .dashboard-layout { display: flex; min-height: 100vh; }
+        .sidebar {
+            width: 260px;
+            background-color: var(--bg-dark-2);
+            border-right: 1px solid var(--border-color);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            transition: width 0.2s ease, padding 0.2s ease;
+        }
+ .editor-textarea { width: 100%; border: none; padding: 12px; resize: vertical; min-height: 80px; font-size: 1rem; outline: none; background-color: var(--bg-dark-2); color: var(--text-primary); }
+        .markdown-help { font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; }
+        .sidebar.collapsed { width: 88px; padding: 24px 12px; }
+        .sidebar-header { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+        .sidebar-header .logo { width: 32px; height: 32px; background: linear-gradient(45deg, #3b82f6, #60a5fa); border-radius: 8px; color: white; display: grid; place-items: center; font-weight: bold; font-size: 1.25rem; flex-shrink: 0; }
+        .sidebar.collapsed .sidebar-header h1, .sidebar.collapsed .nav-item .nav-text, .sidebar.collapsed .sidebar-footer .label { display: none; }
+        .sidebar-header h1 { font-size: 1.25rem; font-weight: 600; margin: 0;}
+        .nav-menu { flex-grow: 1; }
+        .nav-list { list-style: none; padding: 0; margin: 0; }
+        .nav-item a { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 6px; text-decoration: none; color: var(--text-secondary); font-weight: 500; transition: all 0.2s; white-space: nowrap; overflow: hidden;}
+        .sidebar.collapsed .nav-item a { justify-content: center; }
+        .nav-item a:hover { background-color: var(--bg-dark-3); color: white; }
+        .nav-item a.active { background-color: var(--primary-color); color: white; }
+        .nav-item a svg { width: 20px; height: 20px; flex-shrink: 0; }
+        .sidebar-footer { margin-top: auto; }
+        #sidebarToggle { width: 100%; background-color: var(--bg-dark-3); color: var(--text-secondary); border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 1.5rem; line-height: 1; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        
+        .main-content { flex-grow: 1; padding: 32px; overflow-y: auto; }
+        .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .main-header h2 { font-size: 1.75rem; font-weight: 700; }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .grid { display: grid; gap: 24px; }
+        .command-center-grid { grid-template-columns: 380px 380px 1fr; }
+        .column { display: flex; flex-direction: column; gap: 24px; }
+        
+        .card { background-color: var(--bg-dark-2); border-radius: 8px; border: 1px solid var(--border-color); padding: 24px; display: flex; flex-direction: column; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); }
+        h3 { font-size: 1.125rem; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 10px; }
+        h3 svg { width: 20px; height: 20px; color: var(--text-secondary); }
+        .count { background-color: var(--primary-color); color: white; font-weight: 500; font-size: 0.8rem; padding: 4px 10px; border-radius: 999px; }
+        
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .stat-card { background-color: var(--bg-dark-3); padding: 16px; border-radius: 8px; text-align: center; }
+        .stat-card .value { font-size: 2rem; font-weight: 700; }
+        .stat-card .label { font-size: 0.875rem; color: var(--text-secondary); margin-top: 4px; }
+        
+        .item-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; min-height: 150px; }
+        .item-list li { display: flex; justify-content: space-between; align-items: center; padding: 12px 8px; border-bottom: 1px solid var(--border-color); }
+        .action-btn { padding: 15px 30px;margin: 10px 10px; font-size: 0.875rem; cursor: pointer; border: none; border-radius: 6px; color: white; transition: all 0.2s; white-space: nowrap; }
+        .approve-btn { background-color: var(--success-color); } .reject-btn, .ban-btn { background-color: var(--danger-color); } .unban-btn { background-color: var(--text-secondary); }
+        
+        .controls { display: flex; gap: 10px; margin-top: 16px; }
+        .controls input, .controls textarea { flex-grow: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 1rem; background-color: var(--bg-dark-1); color: var(--text-primary); }
+        .controls button { background-color: var(--primary-color); color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; }
+        .log-container { height: calc(100vh - 200px); overflow-y: scroll; font-family: 'Fira Code', monospace; font-size: 0.85em; background-color: var(--bg-dark-1); border-radius: 6px; padding: 10px; }
+        .log-warn { color: #f59e0b; } .log-error { color: #ef4444; }
+        
+        .user-list-table { width: 100%; border-collapse: collapse; }
+        .user-list-table th, .user-list-table td { text-align: left; padding: 12px; border-bottom: 1px solid var(--border-color); }
+        .user-list-table th { font-weight: 500; font-size: 0.875rem; color: var(--text-secondary); text-transform: uppercase; }
+        .user-status-banned { color: var(--danger-color); font-weight: bold; }
+        .user-status-active { color: var(--success-color); }
+
+        .progress-bar { width: 100%; background-color: var(--bg-dark-3); border-radius: 4px; overflow: hidden; height: 10px; margin-top: 8px; }
+        .progress-bar-inner { height: 100%; background-color: var(--success-color); transition: width 0.5s ease; }
+        
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { padding: 16px; border-radius: 8px; color: white; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); opacity: 0; transform: translateY(20px); animation: slideInUp 0.5s forwards; margin-top: 10px;}
+        .toast.hide { animation: slideOutDown 0.5s forwards; }
+        .toast-success { background-color: var(--success-color); } .toast-error { background-color: var(--danger-color); } .toast-info { background-color: #0dcaf0; }
+        @keyframes slideInUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes slideOutDown { from { transform: translateY(0); opacity: 1; } to { transform: translateY(20px); opacity: 0; } }
+
+        @media (max-width: 1200px) { .command-center-grid { grid-template-columns: 1fr 1fr; } .right-column { grid-column: 1 / -1; margin-top: 24px; } }
+        @media (max-width: 768px) { .command-center-grid { grid-template-columns: 1fr; } .sidebar { display: none; } .main-content { padding: 16px; } }
+    </style>
+</head>
+<body>
+    <div id="toast-container"></div>
+    <div class="dashboard-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header"><div class="logo">B</div><h1>Command Center</h1></div>
+            <nav class="nav-menu"><ul class="nav-list" id="navMenu">
+                <li class="nav-item">
+                    <a href="#" class="nav-link active" data-tab="dashboard">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h12M3.75 3h16.5M3.75 3v-1.5A2.25 2.25 0 016 0h12a2.25 2.25 0 012.25 2.25v1.5M3.75 16.5v2.25A2.25 2.25 0 006 21h12a2.25 2.25 0 002.25-2.25V16.5m-14.25-8.25h12.75" /></svg>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-tab="users">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-2.43M15 19.128v-3.872M15 19.128l-2.625-.372a9.337 9.337 0 01-4.121-2.43m-4.29 4.815a9.337 9.337 0 01-4.121-2.43M3.75 14.628l2.625.372a9.337 9.337 0 014.121 2.43M3.75 14.628v-3.872m0 0l2.625-.372a9.337 9.337 0 014.121-2.43m-4.29-4.816a9.337 9.337 0 014.121-2.43L15 4.872v-3.872m0 0l2.625.372a9.337 9.337 0 014.121 2.43M12 10.5a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm0 0l2.625.372a9.337 9.337 0 014.121 2.43M12 10.5l-2.625-.372a9.337 9.337 0 00-4.121 2.43m4.29-4.816a9.337 9.337 0 00-4.121-2.43L3.75 4.872m0 0l-2.625-.372a9.337 9.337 0 00-4.121 2.43" /></svg>
+                        <span class="nav-text">All Users</span>
+                    </a>
+                </li>
+            </ul></nav>
+            <div class="sidebar-footer">
+                <button id="sidebarToggle" title="Toggle Sidebar"><span class="label"><</span></button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="main-header"><h2 id="pageTitle">System Overview</h2><div id="statusIndicator">Connecting...</div></header>
+            
+            <div id="dashboard" class="tab-content active">
+                <div class="card" id="broadcastStatusCard" style="display: none; margin-bottom: 24px;">
+                    <div class="card-header"><h3>📡 Broadcast Status</h3></div>
+                    <p><strong>Message:</strong> <em id="broadcastMessageText"></em></p>
+                    <div class="progress-bar"><div id="broadcastProgressBar" class="progress-bar-inner" style="width: 0%;"></div></div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-top: 8px;">
+                        <span><strong>Progress:</strong> <span id="broadcastProgress">0</span> / <span id="broadcastTotal">0</span></span>
+                        <span><strong style="color: var(--success-color);">Success:</strong> <span id="broadcastSuccess">0</span> | <strong style="color: var(--danger-color);">Failed:</strong> <span id="broadcastFailed">0</span></span>
+                    </div>
+                    <div id="broadcastErrors" style="margin-top: 10px; font-size: 0.8em; max-height: 250px; overflow-y: auto;"></div>
+                </div>
+                <div class="grid command-center-grid">
+                    <div class="column left-column">
+                        <div class="card">
+                            <div class="card-header"><h3>📊 Key Statistics</h3></div>
+                            <div class="grid stats-grid">
+                                <div class="stat-card"><div id="totalFonts" class="value">0</div><div class="label">Fonts</div></div>
+                                <div class="stat-card"><div id="totalUsers" class="value">0</div><div class="label">Users</div></div>
+                                <div class="stat-card"><div id="pendingFontsStat" class="value">0</div><div class="label">Pending</div></div>
+                                <div class="stat-card"><div id="bannedUsersStat" class="value">0</div><div class="label">Banned</div></div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>User Management</h3>
+                            </div>
+                            <div class="controls" style="margin-top: 0;"><input type="text" id="userSearchInput" placeholder="Enter User ID..."><button id="userSearchBtn">Find</button></div>
+                            <div id="userInfo" style="display: none;"></div>
+                            <div id="messageControls" style="display: none;"><textarea id="singleMessage" class="editor-textarea" rows="3" placeholder="Send a direct message..."></textarea><div class="controls" style="justify-content: flex-end;"><button id="sendMessageBtn">Send Message</button></div></div>
+                        </div>
+                        <div class="card">
+                             <div class="card-header">
+                                <h3><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688 0-1.25-.562-1.25-1.25s.562-1.25 1.25-1.25h3.32c.688 0 1.25.562 1.25 1.25s-.562 1.25-1.25 1.25h-3.32z" /><path stroke-linecap="round" stroke-linejoin="round" d="M9.09 15.84A5.25 5.25 0 0013.59 5.85m-4.5 9.99a5.25 5.25 0 01-4.5-9.99m4.5 9.99V18a2.25 2.25 0 002.25 2.25h1.5a2.25 2.25 0 002.25-2.25v-2.16m-4.5 0a5.25 5.25 0 004.5 0" /></svg>Broadcast Message</h3>
+                            </div>
+                             <textarea id="broadcastMessage" class="editor-textarea" rows="4" placeholder="Enter message to send to all users..."></textarea>
+                             <div class="controls" style="justify-content: flex-end;"><button id="sendBroadcastBtn">Broadcast</button></div>
+                        </div>
+                    </div>
+
+                    <div class="column middle-column">
+                        <div class="card">
+                            <div class="card-header"><h3>🕒 Pending Fonts</h3><span id="pendingCount" class="count">0</span></div>
+                            <ul class="item-list" id="pendingList"></ul>
+                        </div>
+                         <div class="card">
+                            <div class="card-header"><h3>🚫 Banned Users</h3><span id="bannedCount" class="count">0</span></div>
+                            <ul class="item-list" id="bannedList"></ul>
+                        </div>
+                    </div>
+
+                    <div class="column right-column">
+                         <div class="card">
+                            <div class="card-header"><h3>📜 Live Activity Log</h3></div>
+                            <div class="controls" style="margin-top: 0; margin-bottom: 16px;"><input type="text" id="logSearchInput" placeholder="Filter logs..."></div>
+                            <div id="logContainer" class="log-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="users" class="tab-content">
+                 <div class="card">
+                    <div class="card-header"><h3>👥 All Users</h3><span id="allUserCount" class="count">0</span></div>
+                    <div class="controls" style="margin-top: 0; margin-bottom: 16px;"><input type="text" id="allUserSearchInput" placeholder="Search users by ID, name, or username..."></div>
+                    <div style="overflow-x: auto;"><table class="user-list-table"><thead><tr><th>ID</th><th>Name</th><th>Username</th><th>Last Seen</th><th>Status</th><th>Actions</th></tr></thead><tbody id="allUserList"></tbody></table></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const elements = {
+            status: document.getElementById('statusIndicator'), navMenu: document.getElementById('navMenu'),
+            tabContents: document.querySelectorAll('.tab-content'), pageTitle: document.getElementById('pageTitle'),
+            sidebar: document.getElementById('sidebar'), sidebarToggle: document.getElementById('sidebarToggle'),
+            totalFonts: document.getElementById('totalFonts'), pendingFontsStat: document.getElementById('pendingFontsStat'),
+            bannedUsersStat: document.getElementById('bannedUsersStat'), totalUsers: document.getElementById('totalUsers'),
+            pendingList: document.getElementById('pendingList'), pendingCount: document.getElementById('pendingCount'),
+            bannedList: document.getElementById('bannedList'), bannedCount: document.getElementById('bannedCount'),
+            logContainer: document.getElementById('logContainer'), logSearchInput: document.getElementById('logSearchInput'),
+            userSearchInput: document.getElementById('userSearchInput'), userSearchBtn: document.getElementById('userSearchBtn'),
+            banBtn: document.getElementById('banBtn'), userInfo: document.getElementById('userInfo'),
+            messageControls: document.getElementById('messageControls'), singleMessage: document.getElementById('singleMessage'),
+            sendMessageBtn: document.getElementById('sendMessageBtn'),
+            broadcastMessage: document.getElementById('broadcastMessage'), sendBroadcastBtn: document.getElementById('sendBroadcastBtn'),
+            allUserCount: document.getElementById('allUserCount'), allUserSearchInput: document.getElementById('allUserSearchInput'),
+            allUserList: document.getElementById('allUserList'),
+            toastContainer: document.getElementById('toast-container'),
+            broadcastStatusCard: document.getElementById('broadcastStatusCard'), broadcastMessageText: document.getElementById('broadcastMessageText'), broadcastProgressBar: document.getElementById('broadcastProgressBar'), broadcastProgress: document.getElementById('broadcastProgress'), broadcastTotal: document.getElementById('broadcastTotal'), broadcastSuccess: document.getElementById('broadcastSuccess'), broadcastFailed: document.getElementById('broadcastFailed'), broadcastErrors: document.getElementById('broadcastErrors'),
+        };
+        const apiCall = async (endpoint, method = 'GET', body = null, signal = null) => { try { const options = { method, headers: { 'Content-Type': 'application/json' }, signal }; if (body) options.body = JSON.stringify(body); const response = await fetch(endpoint, options); const responseData = await response.json(); if (!response.ok) throw new Error(responseData.error || `API call failed: ${response.statusText}`); return responseData; } catch (error) { if (error.name !== 'AbortError') { console.error(`API Error on ${endpoint}:`, error); showToast(`Action failed: ${error.message}`, 'error'); } return null; } };
+        const showToast = (message, type = 'success') => { if (!message) return; const toast = document.createElement('div'); toast.className = `toast toast-${type}`; toast.textContent = message; elements.toastContainer.appendChild(toast); setTimeout(() => toast.classList.add('show'), 10); setTimeout(() => { toast.classList.add('hide'); toast.addEventListener('animationend', () => toast.remove()); }, 4000); };
+        const createEmptyListItem = (message) => `<li style="justify-content:center; padding: 20px; color: var(--text-secondary);">${message}</li>`;
+        const createEmptyTableRow = (message, colspan) => `<tr class="empty-state"><td colspan="${colspan}" style="text-align:center; padding: 20px;">${message}</td></tr>`;
+        
+        const renderStats = (stats = {}) => { elements.totalFonts.textContent = stats.totalFonts ?? 0; elements.pendingFontsStat.textContent = stats.pendingCount ?? 0; elements.bannedUsersStat.textContent = stats.bannedCount ?? 0; elements.totalUsers.textContent = stats.totalUsers ?? 0; };
+        const renderPending = (fonts = []) => { elements.pendingCount.textContent = fonts.length; if (fonts.length === 0) return elements.pendingList.innerHTML = createEmptyListItem('No pending fonts.'); elements.pendingList.innerHTML = fonts.map(fileName => { const originalName = fileName.split('_').slice(2).join('_') || fileName; const uploaderId = fileName.split('_')[1]; return `<li><div class="item-info"><strong>${originalName}</strong><span class="meta" style="display:block;">from: <code>${uploaderId}</code></span></div><div><button class="action-btn approve-btn" data-filename="${fileName}">✔</button><button class="action-btn reject-btn" data-filename="${fileName}">✖</button></div></li>`; }).join(''); };
+        const renderBanned = (users = []) => { elements.bannedCount.textContent = users.length; if (users.length === 0) return elements.bannedList.innerHTML = createEmptyListItem('No banned users.'); elements.bannedList.innerHTML = users.map(user => `<li><div class="item-info"><code>${user.id}</code><span class="meta" style="display:block;">${user.reason || 'N/A'}</span></div><button class="action-btn unban-btn" data-userid="${user.id}">Unban</button></li>`).join(''); };
+        const renderLogs = (logs = []) => { if (logs.length === 0) return elements.logContainer.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);">No logs found.</div>'; elements.logContainer.innerHTML = logs.map(log => { let logClass = ''; if (log.includes('[WARN]')) logClass = 'log-warn'; if (log.includes('[ERROR]')) logClass = 'log-error'; return `<div class="log-entry ${logClass}">${log}</div>`; }).join(''); };
+        const renderUserInfo = (user) => { if (!user) { elements.userInfo.innerHTML = `<div style="padding:15px; background-color: var(--danger-color); color:white; border-radius:8px;">User not found.</div>`; elements.userInfo.style.display = 'block'; elements.messageControls.style.display = 'none'; return; } const banStatus = user.isBanned ? '<span class="user-status-banned">BANNED</span>' : '<span class="user-status-active">Active</span>'; elements.userInfo.innerHTML = `<div id="user-info-details" style="margin-top:15px; padding:15px; background-color: var(--bg-dark-3); border-radius:8px;"><p><strong>ID:</strong> <code>${user.id}</code> | <strong>Status:</strong> ${banStatus}</p><p><strong>Name:</strong> ${user.first_name || ''} ${user.last_name || ''}</p><p><strong>Username:</strong> ${user.username ? `@${user.username}` : 'N/A'}</p><p><strong>Last Seen:</strong> ${new Date(user.lastSeen).toLocaleString()}</p></div>`; elements.userInfo.style.display = 'block'; elements.messageControls.style.display = 'block'; };
+        const renderAllUsers = (users = []) => { elements.allUserCount.textContent = users.length; if (users.length === 0) { elements.allUserList.innerHTML = createEmptyTableRow('No users found for this query.', 6); return; } elements.allUserList.innerHTML = users.map(user => { const statusClass = user.isBanned ? 'user-status-banned' : 'user-status-active'; const statusText = user.isBanned ? 'Banned' : 'Active'; const banButton = user.isBanned ? `<button class="action-btn unban-btn" data-userid="${user.id}">Unban</button>` : `<button class="action-btn ban-btn" data-userid="${user.id}">Ban</button>`; return `<tr><td><code>${user.id}</code></td><td>${(user.first_name || '')} ${user.last_name || ''}</td><td>${user.username ? `@${user.username}` : 'N/A'}</td><td>${new Date(user.lastSeen).toLocaleString()}</td><td><span style="font-weight:bold;" class="${statusClass}">${statusText}</span></td><td>${banButton}</td></tr>`; }).join(''); };
+        const renderBroadcastStatus = (status) => { if (!status) { elements.broadcastStatusCard.style.display = 'none'; return; } elements.broadcastStatusCard.style.display = 'block'; elements.broadcastMessageText.textContent = status.message.substring(0, 100) + (status.message.length > 100 ? '...' : ''); elements.broadcastTotal.textContent = status.total; const progress = status.total > 0 ? ((status.sent + status.failed) / status.total) * 100 : 0; elements.broadcastProgressBar.style.width = `${progress}%`; elements.broadcastProgress.textContent = status.sent + status.failed; elements.broadcastSuccess.textContent = status.sent; elements.broadcastFailed.textContent = status.failed; if(status.errors && status.errors.length > 0) { elements.broadcastErrors.innerHTML = '<strong>Error Details:</strong><br>' + status.errors.map(e => `User <code>${e.chatId}</code>: ${e.error}`).join('<br>'); } else { elements.broadcastErrors.innerHTML = ''; } if(status.completedAt) { elements.broadcastProgressBar.style.backgroundColor = status.failed > 0 ? 'var(--warning-color)' : 'var(--success-color)'; } else { elements.broadcastProgressBar.style.backgroundColor = 'var(--success-color)'; } };
+        
+        let currentTab = 'dashboard';
+        let dataFetchController;
+        const fetchData = async () => {
+            if (dataFetchController) dataFetchController.abort();
+            dataFetchController = new AbortController();
+            const signal = dataFetchController.signal;
+            elements.status.textContent = 'Loading...';
+            try {
+                if (currentTab === 'dashboard') {
+                    const logSearchQuery = elements.logSearchInput.value.trim();
+                    const data = await apiCall(`/api/data?log_search=${encodeURIComponent(logSearchQuery)}`, 'GET', null, signal);
+                    const broadcastStatus = await apiCall('/api/broadcast/status', 'GET', null, signal);
+                    if (data) { renderStats(data.stats); renderPending(data.pendingFonts); renderBanned(data.bannedUsers); renderLogs(data.logs); renderBroadcastStatus(broadcastStatus); }
+                } else if (currentTab === 'users') {
+                    const userSearchQuery = elements.allUserSearchInput.value.trim();
+                    const data = await apiCall(`/api/users?search=${encodeURIComponent(userSearchQuery)}`, 'GET', null, signal);
+                    if (data?.users) renderAllUsers(data.users);
+                }
+                elements.status.textContent = `Live`;
+                elements.status.style.color = 'var(--success-color)';
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    elements.status.textContent = 'Error loading data.';
+                    elements.status.style.color = 'var(--danger-color)';
+                }
+            }
+        };
+        
+        const setupEventListeners = () => {
+            elements.navMenu.addEventListener('click', (e) => { e.preventDefault(); const link = e.target.closest('.nav-link'); if (!link) return; const tabId = link.dataset.tab; if (currentTab === tabId) return; currentTab = tabId; elements.navMenu.querySelector('.active').classList.remove('active'); link.classList.add('active'); elements.tabContents.forEach(c => c.classList.toggle('active', c.id === tabId)); elements.pageTitle.textContent = link.querySelector('.nav-text').textContent.trim(); fetchData(); });
+            const handleListAction = async (e) => { const button = e.target.closest('.action-btn'); if (!button) return; const { dataset } = button; let actionTaken = false; if (dataset.filename) { if (button.classList.contains('approve-btn')) await apiCall('/api/approve', 'POST', { fileName: dataset.filename }); else if (button.classList.contains('reject-btn')) await apiCall('/api/reject', 'POST', { fileName: dataset.filename }); actionTaken = true; } else if (dataset.userid) { if (button.classList.contains('unban-btn')) await apiCall('/api/unban', 'POST', { userId: dataset.userid }); else if (button.classList.contains('ban-btn')) { if (confirm(`Ban user ${dataset.userid}?`)) await apiCall('/api/ban', 'POST', { userId: dataset.userid, reason: 'Banned from user list' }); } actionTaken = true; } if (actionTaken) { fetchData(); } };
+            elements.pendingList.addEventListener('click', handleListAction);
+            elements.bannedList.addEventListener('click', handleListAction);
+            elements.allUserList.addEventListener('click', handleListAction);
+            const handleUserSearch = async () => { const userId = elements.userSearchInput.value.trim(); if (!userId || isNaN(userId)) { alert('Please enter a valid User ID.'); return; } const user = await apiCall(`/api/user/${userId}`); renderUserInfo(user); };
+            elements.userSearchBtn.addEventListener('click', handleUserSearch);
+            elements.userSearchInput.addEventListener('keyup', e => { if (e.key === 'Enter') handleUserSearch(); });
+            elements.sendMessageBtn.addEventListener('click', async () => { const userId = elements.userSearchInput.value.trim(); const message = elements.singleMessage.value.trim(); if (userId && message) { const result = await apiCall('/api/message', 'POST', { userId, message }); if (result) { showToast(`Message queued for user ${userId}!`, 'success'); elements.singleMessage.value = ''; } } });
+            elements.sendBroadcastBtn.addEventListener('click', async (e) => { const button = e.target; const message = elements.broadcastMessage.value.trim(); if (message && confirm(`Are you sure you want to broadcast this message?`)) { button.disabled = true; button.textContent = 'Sending...'; const result = await apiCall('/api/broadcast', 'POST', { message }); if (result) { showToast(result.message, 'success'); elements.broadcastMessage.value = ''; } button.disabled = false; button.textContent = 'Broadcast'; } });
+            elements.logSearchInput.addEventListener('keyup', () => { clearTimeout(window.searchTimeout); window.searchTimeout = setTimeout(fetchData, 300); });
+            elements.allUserSearchInput.addEventListener('keyup', () => { clearTimeout(window.userSearchTimeout); window.userSearchTimeout = setTimeout(fetchData, 300); });
+            elements.sidebarToggle.addEventListener('click', () => { elements.sidebar.classList.toggle('collapsed'); elements.sidebarToggle.querySelector('.label').textContent = elements.sidebar.classList.contains('collapsed') ? '»' : '«'; });
+        };
+        
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${protocol}//${window.location.host}`);
+            ws.onopen = () => { showToast('Real-time connection established!', 'success'); fetchData(); };
+            ws.onmessage = (event) => { try { const data = JSON.parse(event.data); if (data.event === 'dataUpdate') { showToast(`Live update: ${(data.type || '').replace(/_/g, ' ')}`, 'info'); fetchData(); } else if (data.event === 'newLog' && data.message) { if (currentTab !== 'dashboard') return; const newLog = document.createElement('div'); let logClass = ''; if (data.message.includes('[WARN]')) logClass = 'log-warn'; if (data.message.includes('[ERROR]')) logClass = 'log-error'; newLog.className = `log-entry ${logClass}`; newLog.textContent = data.message; elements.logContainer.prepend(newLog); while (elements.logContainer.children.length > 200) elements.logContainer.lastChild.remove(); } } catch (error) { console.error("Error processing WebSocket message:", error); } };
+            ws.onclose = () => { elements.status.textContent = 'Disconnected. Retrying...'; elements.status.style.color = 'var(--danger-color)'; setTimeout(connectWebSocket, 5000); };
+            ws.onerror = (error) => { console.error('WebSocket error:', error); ws.close(); };
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html>

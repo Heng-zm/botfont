@@ -1,0 +1,13 @@
+2025-07-08 11:55:02 [error]: uncaughtException: listen EADDRINUSE: address already in use :::3000
+Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1939:16)
+    at listenInCluster (node:net:1996:12)
+    at Server.listen (node:net:2101:7)
+    at startAdminPanel (C:\path\botV8\bot\adminPanel.js:221:12)
+    at main (C:\path\botV8\bot\index.js:57:5)
+    at Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1939:16)
+    at listenInCluster (node:net:1996:12)
+    at Server.listen (node:net:2101:7)
+    at startAdminPanel (C:\path\botV8\bot\adminPanel.js:221:12)
+    at main (C:\path\botV8\bot\index.js:57:5)

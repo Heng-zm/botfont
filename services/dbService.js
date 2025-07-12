@@ -1,0 +1,27 @@
+// services/dbService.js
+const { Low } = require('lowdb'); const { JSONFile } = require('lowdb/node'); const path = require('path'); const { logger } = require('./logger');
+const eventEmitter = require('./eventService');
+const dbPath = path.join(__dirname, '..', 'db.json');
+const defaultData = { users: {}, bannedUsers: {}, messageQueue: [], fileIdCache: {}, broadcastResults: null }; 
+const adapter = new JSONFile(dbPath);
+const db = new Low(adapter, defaultData);
+async function initializeDatabase() { await db.read(); db.data = db.data || {}; db.data.users = db.data.users || {}; db.data.bannedUsers = db.data.bannedUsers || {}; db.data.messageQueue = db.data.messageQueue || []; db.data.fileIdCache = db.data.fileIdCache || {}; db.data.broadcastResults = db.data.broadcastResults || null; await db.write(); logger.info('Database initialized and validated successfully.'); }
+async function addOrUpdateUser(cleanUser) { if (!cleanUser || !cleanUser.id) return; const userId = cleanUser.id.toString(); const now = new Date().toISOString(); const existingRecord = db.data.users[userId]; db.data.users[userId] = { ...cleanUser, lastSeen: now, firstSeen: existingRecord ? existingRecord.firstSeen : now, activity: existingRecord ? existingRecord.activity : { downloads: [], uploads: [] } }; await db.write(); }
+const getAllUsers = () => Object.values(db.data.users || {});
+const findUserById = (userId) => (db.data.users || {})[userId.toString()] || null;
+async function banUser(userId, reason) { const id = userId.toString(); if (db.data.bannedUsers[id]) return false; db.data.bannedUsers[id] = { reason: reason, date: new Date().toISOString() }; await db.write(); eventEmitter.emit('dataChanged', { type: 'BANNED_USERS' }); return true; }
+async function unbanUser(userId) { const id = userId.toString(); if (!db.data.bannedUsers[id]) return false; delete db.data.bannedUsers[id]; await db.write(); return true; }
+const isUserBanned = (userId) => !!(db.data.bannedUsers || {})[userId.toString()];
+const getBanList = () => Object.entries(db.data.bannedUsers || {}).map(([id, data]) => ({ id, ...data }));
+async function logDownload(userId, fontName) { const id = userId.toString(); if (!db.data.users[id]) return; if (!db.data.users[id].activity) db.data.users[id].activity = { downloads: [], uploads: [] }; if (!db.data.users[id].activity.downloads) db.data.users[id].activity.downloads = []; db.data.users[id].activity.downloads.unshift({ fontName, date: new Date().toISOString() }); db.data.users[id].activity.downloads.splice(20); await db.write(); }
+async function logUpload(userId, fontName, status, decisionDate = null) { const id = userId.toString(); if (!db.data.users[id]) return; if (!db.data.users[id].activity) db.data.users[id].activity = { downloads: [], uploads: [] }; if (!db.data.users[id].activity.uploads) db.data.users[id].activity.uploads = []; const existingUploadIndex = db.data.users[id].activity.uploads.findIndex(u => u.fontName === fontName && u.status === 'pending'); if (existingUploadIndex > -1) { db.data.users[id].activity.uploads[existingUploadIndex].status = status; db.data.users[id].activity.uploads[existingUploadIndex].decisionDate = decisionDate || new Date().toISOString(); } else { db.data.users[id].activity.uploads.unshift({ fontName, status, date: new Date().toISOString() }); } db.data.users[id].activity.uploads.splice(20); await db.write(); }
+async function getStats() { const { getFontCache } = require('./fontService'); return { totalUsers: Object.keys(db.data.users || {}).length, bannedCount: Object.keys(db.data.bannedUsers || {}).length, totalFonts: getFontCache().length, }; }
+async function addMessageToQueue(chatId, text, isBroadcast = false) { if (!Array.isArray(db.data.messageQueue)) db.data.messageQueue = []; db.data.messageQueue.push({ chatId, text, isBroadcast }); await db.write(); }
+async function popAllMessagesFromQueue() { if (!Array.isArray(db.data.messageQueue)) return []; const messages = [...db.data.messageQueue]; db.data.messageQueue = []; await db.write(); return messages; }
+async function startBroadcastLog(message, totalUsers) { db.data.broadcastResults = { message, total: totalUsers, sent: 0, failed: 0, startedAt: new Date().toISOString(), completedAt: null, errors: [] }; await db.write(); }
+async function logBroadcastResult(success, chatId, errorMessage) { if (!db.data.broadcastResults) return; if (success) db.data.broadcastResults.sent += 1; else { db.data.broadcastResults.failed += 1; if(db.data.broadcastResults.errors.length < 50) db.data.broadcastResults.errors.push({ chatId, error: errorMessage }); } await db.write(); }
+async function endBroadcastLog() { if (!db.data.broadcastResults) return; db.data.broadcastResults.completedAt = new Date().toISOString(); await db.write(); }
+const getBroadcastStatus = () => db.data.broadcastResults || null;
+const getCachedFileId = (fontName) => (db.data.fileIdCache || {})[fontName] || null;
+async function cacheFileId(fontName, fileId) { if (!db.data.fileIdCache) db.data.fileIdCache = {}; db.data.fileIdCache[fontName] = fileId; await db.write(); };
+module.exports = { initializeDatabase, addOrUpdateUser, getAllUsers, findUserById, banUser, unbanUser, isUserBanned, getBanList, getStats, addMessageToQueue, popAllMessagesFromQueue, getCachedFileId, cacheFileId, startBroadcastLog, logBroadcastResult, endBroadcastLog, getBroadcastStatus, logDownload, logUpload };
